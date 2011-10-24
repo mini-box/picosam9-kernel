@@ -1388,7 +1388,7 @@ static void atmci_read_data_pio(struct atmel_mci *host)
 			nbytes += 4;
 
 			if (offset == sg->length) {
-				flush_dcache_page(sg_page(sg));
+				flush_kernel_dcache_page(sg_page(sg));
 				host->sg = sg = sg_next(sg);
 				if (!sg)
 					goto done;
@@ -1401,7 +1401,7 @@ static void atmci_read_data_pio(struct atmel_mci *host)
 			memcpy(buf + offset, &value, remaining);
 			nbytes += remaining;
 
-			flush_dcache_page(sg_page(sg));
+			flush_kernel_dcache_page(sg_page(sg));
 			host->sg = sg = sg_next(sg);
 			if (!sg)
 				goto done;

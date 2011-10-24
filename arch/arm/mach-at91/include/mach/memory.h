@@ -23,4 +23,26 @@
 
 #include <mach/hardware.h>
 
+#define PHYS_OFFSET	0x70000000     /* DDRSDRC0 */
+
+#if defined(CONFIG_ARCH_AT91SAM9G45) || defined(CONFIG_ARCH_AT91SAM9M10)
+/*
+ * Non-linear mapping like so:
+ * phys       => virt
+ * 0x70000000 => 0xc0000000
+ * 0x20000000 => 0xc8000000
+ */
+
+#define __phys_to_virt(p)   \
+	(((p) & 0x07ffffff) + (((p) & 0x40000000) ? 0xc0000000 : 0xc8000000))
+
+#define __virt_to_phys(v)   \
+	(((v) & 0x07ffffff) + (((v) & 0x08000000) ? 0x20000000 : 0x70000000 ))
+
+#define NODE_MEM_SIZE_BITS	27
+#define MAX_PHYSMEM_BITS	32
+#define SECTION_SIZE_BITS	27 /*128 Mb */
+#define HIGH_MEMORY_VIRT	0xd0000000
+#endif
+
 #endif

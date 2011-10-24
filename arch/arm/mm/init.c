@@ -402,7 +402,11 @@ void __init bootmem_init(void)
 	 */
 	arm_bootmem_free(min, max_low, max_high);
 
+#ifdef HIGH_MEMORY_VIRT
+	high_memory = HIGH_MEMORY_VIRT;
+#else
 	high_memory = __va(((phys_addr_t)max_low << PAGE_SHIFT) - 1) + 1;
+#endif
 
 	/*
 	 * This doesn't seem to be used by the Linux memory manager any
