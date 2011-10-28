@@ -1041,8 +1041,6 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 
 	mqrq->mmc_active.mrq = &brq->mrq;
 	mqrq->mmc_active.err_check = mmc_blk_err_check;
-		} else if (disable_multi == 1) {
-			disable_multi = 0;
 
 	mmc_queue_bounce_pre(mqrq);
 }

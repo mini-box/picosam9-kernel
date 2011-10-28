@@ -3266,6 +3266,7 @@ void l2cap_chan_busy(struct l2cap_chan *chan, int busy)
 			l2cap_ertm_enter_local_busy(chan);
 		else
 			l2cap_ertm_exit_local_busy(chan);
+	}
 }
 
 static int l2cap_streaming_reassembly_sdu(struct l2cap_chan *chan, struct sk_buff *skb, u16 control)
