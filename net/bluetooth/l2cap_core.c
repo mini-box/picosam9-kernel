@@ -1108,10 +1108,10 @@ int l2cap_chan_connect(struct l2cap_chan *chan)
 	auth_type = l2cap_get_auth_type(chan);
 
 	if (chan->dcid == L2CAP_CID_LE_DATA)
-		hcon = hci_connect(hdev, LE_LINK, dst,
+		hcon = hci_connect(hdev, LE_LINK, 0, dst,
 					chan->sec_level, auth_type);
 	else
-		hcon = hci_connect(hdev, ACL_LINK, dst,
+		hcon = hci_connect(hdev, ACL_LINK, 0, dst,
 					chan->sec_level, auth_type);
 
 	if (IS_ERR(hcon)) {
@@ -3230,7 +3230,6 @@ static void l2cap_ertm_enter_local_busy(struct l2cap_chan *chan)
 	control = chan->buffer_seq << L2CAP_CTRL_REQSEQ_SHIFT;
 	control |= L2CAP_SUPER_RCV_NOT_READY;
 	l2cap_send_sframe(chan, control);
-
 	set_bit(CONN_RNR_SENT, &chan->conn_state);
 
 	__clear_ack_timer(chan);
@@ -3267,7 +3266,6 @@ void l2cap_chan_busy(struct l2cap_chan *chan, int busy)
 			l2cap_ertm_enter_local_busy(chan);
 		else
 			l2cap_ertm_exit_local_busy(chan);
-	}
 }
 
 static int l2cap_streaming_reassembly_sdu(struct l2cap_chan *chan, struct sk_buff *skb, u16 control)
