@@ -400,6 +400,12 @@ if ARCH_AT91SAM9G45
 
 comment "AT91SAM9G45 Board Type"
 
+config MACH_MINIBOXPICOSAM9G45
+	bool "Mini-Box.com picoSAM9G45 board"
+	help
+	  Select this if you are using Mini-Box.com picoSAM9G45 Board
+	  <http://arm.mini-box.com>
+
 config MACH_AT91SAM9M10G45EK
 	bool "Atmel AT91SAM9M10G45-EK Evaluation Kits"
 	help
