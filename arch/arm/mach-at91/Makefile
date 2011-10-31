@@ -72,6 +72,7 @@ obj-$(CONFIG_MACH_GSIA18S)	+= board-gsia18s.o board-stamp9g20.o
 obj-$(CONFIG_MACH_SNAPPER_9260)	+= board-snapper9260.o
 
 # AT91SAM9G45 board-specific support
+obj-$(CONFIG_MACH_MINIBOXPICOSAM9G45) += board-picosam9g45.o
 obj-$(CONFIG_MACH_AT91SAM9M10G45EK) += board-sam9m10g45ek.o
 
 # AT91CAP9 board-specific support
