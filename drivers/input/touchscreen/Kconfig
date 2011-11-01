@@ -729,4 +729,17 @@ config TOUCHSCREEN_TPS6507X
 comment "picoPC (Mstar chipset)Capacitive TouchScreen Drivers"
 
 source "drivers/input/touchscreen/mstar_touchpanel/Kconfig"
+
+config TOUCHSCREEN_PICOSAM9G45_TSADCC
+	tristate "picoSAM9G45 Touchscreen Interface"
+	depends on ARCH_AT91SAM9RL || ARCH_AT91SAM9G45
+	help
+	  Say Y here if you have a 4-wire touchscreen connected to the
+          ADC Controller on your picoSAM9G45 board.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called picosam9g45_tsadcc.
+
 endif
