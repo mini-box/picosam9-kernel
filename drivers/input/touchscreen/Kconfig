@@ -726,4 +726,7 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+comment "picoPC (Mstar chipset)Capacitive TouchScreen Drivers"
+
+source "drivers/input/touchscreen/mstar_touchpanel/Kconfig"
 endif
