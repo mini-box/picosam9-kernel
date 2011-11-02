@@ -23,6 +23,7 @@
 #include <linux/input.h>
 #include <linux/leds.h>
 #include <linux/clk.h>
+#include <linux/dma-mapping.h>
 #include <linux/atmel-mci.h>
 
 #include <mach/hardware.h>
@@ -58,6 +59,9 @@ static void __init picosam9g45_init_early(void)
 	at91_register_uart(AT91SAM9G45_ID_US0, 1, ATMEL_UART_CTS | ATMEL_UART_RTS);
 	/* USART1 on ttyS2. (Rx, Tx, RTS, CTS) */
 	at91_register_uart(AT91SAM9G45_ID_US1, 2, ATMEL_UART_CTS | ATMEL_UART_RTS);
+
+	/* USART2 on ttyS3. (Rx, Tx, RTS, CTS) */
+	at91_register_uart(AT91SAM9G45_ID_US2, 3, ATMEL_UART_CTS | ATMEL_UART_RTS);
 
 	/* set serial console to ttyS0 (ie, DBGU) */
 	at91_set_serial_console(0);
@@ -248,17 +252,6 @@ static struct atmel_lcdfb_info __initdata picosam9g45_lcdc_data = {
 static struct atmel_lcdfb_info __initdata picosam9g45_lcdc_data;
 #endif
 
-
-/*
- * Touchscreen
- */
-static struct at91_tsadcc_data picosam9g45_tsadcc_data = {
-	.adc_clock		= 300000,
-	.pendet_debounce	= 0x0d,
-	.ts_sample_hold_time	= 0x0a,
-};
-
-
 /*
  * GPIO Buttons
  */
@@ -373,7 +366,69 @@ static void picosam9g45_setup_device_buzzer(void)
 }
 
 /*
- * Capacitive touchscreen
+ *  Resistive touchscreen
+ */
+
+
+static struct at91_tsadcc_data picosam9g45_tsadcc_data = {
+	.adc_clock		= 300000,
+	.pendet_debounce	= 0x0d,
+	.ts_sample_hold_time	= 0x0a,
+};
+
+/*   We provide a different driver for resistive touchscreen that also includes a row
+ *  of buttons at the bottom, and we allow users to read ADC input values from sysfs
+ */
+
+#if defined(CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC) || defined(CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC_MODULE)
+static u64 tsadcc_dmamask = DMA_BIT_MASK(32);
+
+static struct resource tsadcc_resources[] = {
+	[0] = {
+		.start	= AT91SAM9G45_BASE_TSC,
+		.end	= AT91SAM9G45_BASE_TSC + SZ_16K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= AT91SAM9G45_ID_TSC,
+		.end	= AT91SAM9G45_ID_TSC,
+		.flags	= IORESOURCE_IRQ,
+	}
+};
+
+static struct platform_device picosam9g45_tsadcc_device = {
+	.name		= "picosam9g45_tsadcc",
+	.id		= -1,
+	.dev		= {
+				.dma_mask		= &tsadcc_dmamask,
+				.coherent_dma_mask	= DMA_BIT_MASK(32),
+				.platform_data		= &picosam9g45_tsadcc_data,
+	},
+	.resource	= tsadcc_resources,
+	.num_resources	= ARRAY_SIZE(tsadcc_resources),
+};
+
+void __init picosam9g45_add_device_tsadcc(void)
+{
+	at91_set_gpio_input(AT91_PIN_PD20, 0);  /* AD0_XR */
+	at91_set_gpio_input(AT91_PIN_PD21, 0);  /* AD1_XL */
+	at91_set_gpio_input(AT91_PIN_PD22, 0);  /* AD2_YT */
+	at91_set_gpio_input(AT91_PIN_PD23, 0);  /* AD3_TB */
+	at91_set_gpio_input(AT91_PIN_PD24, 0);  /* AD4 */
+	at91_set_gpio_input(AT91_PIN_PD25, 0);  /* AD5 */
+	at91_set_gpio_input(AT91_PIN_PD26, 0);  /* AD6 */
+	at91_set_gpio_input(AT91_PIN_PD27, 0);  /* AD7 */
+
+	platform_device_register(&picosam9g45_tsadcc_device);
+}
+#else
+void __init picosam9g45_add_device_tsadcc(void) {}
+#endif
+
+
+
+/*
+ *  Capacitive touchscreen
  */
 #define PICOSAM9G45_CAPTS_IRQ	AT91_PIN_PA27
 static struct i2c_board_info __initdata picosam9g45_i2c1_devices[] = {
@@ -418,7 +473,11 @@ static void __init picosam9g45_board_init(void)
 	/* LCD Controller */
 	at91_add_device_lcdc(&picosam9g45_lcdc_data);
 	/* Resistive Touch Screen */
+#if defined(CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC) || defined(CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC_MODULE)
+	picosam9g45_add_device_tsadcc();
+#else
 	at91_add_device_tsadcc(&picosam9g45_tsadcc_data);
+#endif
 	/* Push Buttons */
 	picosam9g45_add_device_buttons();
 	/* LEDs */
