@@ -107,8 +107,6 @@
 
 /* undef if X axis is not inversed */
 #undef INVERSE_X
-/* define this if the touchscreen has buttons */
-#undef HAS_BUTTONS
 /* X axis from ~30 -> ~980 */
 #define MAX_X		1010
 struct analogInputInfo {
@@ -146,6 +144,9 @@ struct picosam9g45_tsadcc {
 	unsigned char		bufferedmeasure;
 };
 
+/* Single-threaded */
+static struct semaphore	adc_lock;
+
 static void __iomem		*tsc_base;
 static unsigned int		trigger_period;
 
@@ -178,7 +179,7 @@ static irqreturn_t picosam9g45_tsadcc_interrupt(int irq, void *dev)
 		ts_dev->bufferedmeasure = 0;
 		input_report_key(input_dev, BTN_TOUCH, 0);
 		input_report_abs(input_dev, ABS_PRESSURE, 0);
-#ifdef HAS_BUTTONS
+#ifdef CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC_BUTTONS
 		input_report_key(input_dev, 85,0);
 		input_report_key(input_dev, 88, 0);
 		input_report_key(input_dev, KEY_HOME, 0);
@@ -208,7 +209,7 @@ static irqreturn_t picosam9g45_tsadcc_interrupt(int irq, void *dev)
 			x = ts_dev->prev_absx;
 			y = ts_dev->prev_absy;
 			//printk(KERN_ERR "X: %d/%d Y: %d\n", ts_dev->prev_absx, x, ts_dev->prev_absy);
-#ifdef HAS_BUTTONS
+#ifdef CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC_BUTTONS
 			if (y > 820)
 			{
 				if (x < 200 && x > 50)
@@ -250,7 +251,7 @@ static irqreturn_t picosam9g45_tsadcc_interrupt(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-DECLARE_MUTEX(adc_lock);
+
 static ssize_t picosam9g45_adc_read(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	ssize_t status = 0;
@@ -377,6 +378,8 @@ static int __devinit picosam9g45_tsadcc_probe(struct platform_device *pdev)
 		err = PTR_ERR(ts_dev->clk);
 		goto err_free_irq;
 	}
+
+	sema_init(&adc_lock, 1);
 
 	err = platform_device_register(&adc_dev);
 	if (err) {
