@@ -732,4 +732,29 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+comment "picoPC (Mstar chipset)Capacitive TouchScreen Drivers"
+
+source "drivers/input/touchscreen/mstar_touchpanel/Kconfig"
+
+config TOUCHSCREEN_PICOSAM9G45_TSADCC
+	tristate "picoSAM9G45 resisitve touchscreen and ADC interface"
+	depends on ARCH_AT91SAM9RL || ARCH_AT91SAM9G45
+	help
+	  Say Y here if you have a 4-wire touchscreen connected to the
+          ADC Controller and/or you want to be able to read ADC values on 
+          your picoSAM9G45 board.
+          The ADC inputs can be read from /sys/platform/picosam9g45_adc/
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called picosam9g45_tsadcc.
+
+config TOUCHSCREEN_PICOSAM9G45_TSADCC_BUTTONS
+	bool "picosam9g45 Touchscreen buttons"
+	depends on TOUCHSCREEN_PICOSAM9G45_TSADCC
+	help
+	  Say Y here if your resistive touchscreen has buttons on it, usually a row of
+	  3 buttons on the bottom.
+
 endif
