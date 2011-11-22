@@ -450,6 +450,13 @@ endif
 
 comment "AT91 Board Options"
 
+config PICOSAM9G45_HAS_UART2
+	bool "Use serial on J9 instead of buttons"
+	depends on MACH_MINIBOXPICOSAM9G45
+	help
+	  Use J9 pins 11,13 as serial instead of buttons, this will
+	  also disable power led on picosam9g45 board.
+
 config MTD_AT91_DATAFLASH_CARD
 	bool "Enable DataFlash Card support"
 	depends on HAVE_AT91_DATAFLASH_CARD

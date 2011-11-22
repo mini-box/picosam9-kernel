@@ -52,17 +52,16 @@ static void __init picosam9g45_init_early(void)
 	/* Initialize processor: 12.000 MHz crystal */
 	at91_initialize(12000000);
 
-	/* DGBU on ttyS0. (Rx & Tx only) */
+	/* DGBU on ttyS0. (Rx & Tx only) J7 pins 2,4*/
 	at91_register_uart(0, 0, 0);
 
-	/* USART1 on ttyS1. (Rx, Tx, RTS, CTS) */
-	at91_register_uart(AT91SAM9G45_ID_US0, 1, ATMEL_UART_CTS | ATMEL_UART_RTS);
-	/* USART1 on ttyS2. (Rx, Tx, RTS, CTS) */
-	at91_register_uart(AT91SAM9G45_ID_US1, 2, ATMEL_UART_CTS | ATMEL_UART_RTS);
+	/* USART1 on ttyS1. (Rx, Tx, RTS, CTS) J7 pins 11,13,15,17 */
+	at91_register_uart(AT91SAM9G45_ID_US1, 1, ATMEL_UART_CTS | ATMEL_UART_RTS);
 
-	/* USART2 on ttyS3. (Rx, Tx, RTS, CTS) */
-	at91_register_uart(AT91SAM9G45_ID_US2, 3, ATMEL_UART_CTS | ATMEL_UART_RTS);
-
+#ifdef CONFIG_PICOSAM9G45_HAS_UART2
+	/* USART2 on ttyS2. (Rx, Tx, RTS, CTS) J9 pins 11,13,15,17*/
+	at91_register_uart(AT91SAM9G45_ID_US2, 2, ATMEL_UART_CTS | ATMEL_UART_RTS);
+#endif
 	/* set serial console to ttyS0 (ie, DBGU) */
 	at91_set_serial_console(0);
 }
@@ -257,6 +256,7 @@ static struct atmel_lcdfb_info __initdata picosam9g45_lcdc_data;
  */
 #if defined(CONFIG_KEYBOARD_GPIO) || defined(CONFIG_KEYBOARD_GPIO_MODULE)
 static struct gpio_keys_button picosam9g45_buttons[] = {
+#ifndef CONFIG_PICOSAM9G45_HAS_UART2
 	{	/* J9 pin 5 gnd + pin 11 */
 		.code		= KEY_BACK,
 		.gpio		= AT91_PIN_PB6,
@@ -271,6 +271,7 @@ static struct gpio_keys_button picosam9g45_buttons[] = {
 		.desc		= "Menu",
 		.wakeup		= 1,
 	},
+#endif
 	{	/* J9 pin 5 gnd + pin 12 */
 		.code		= KEY_HOME,
 		.gpio		= AT91_PIN_PB16,
@@ -314,11 +315,13 @@ static void __init picosam9g45_add_device_buttons(void) {}
  * LEDs ... these could all be PWM-driven, for variable brightness
  */
 static struct gpio_led picosam9g45_leds[] = {
+#ifndef CONFIG_PICOSAM9G45_HAS_UART2
 	{	/* "pwr" led */
 		.name			= "pwr",
 		.gpio			= AT91_PIN_PD30,
 		.default_trigger	= "heartbeat",
 	},
+#endif
 	{	/* "u1" led */
 		.name			= "u1",
 		.gpio			= AT91_PIN_PD0,
