@@ -203,7 +203,37 @@ static void __init picosam9g45_add_device_nand(void)
 /*
  * LCD Controller
  */
+#undef PICOSAM9G45_BIG_DISPLAY
 #if defined(CONFIG_FB_ATMEL) || defined(CONFIG_FB_ATMEL_MODULE)
+#ifdef PICOSAM9G45_BIG_DISPLAY
+static struct fb_videomode at91_tft_vga_modes[] = {
+	{
+		.name           = "Feigeda",
+		.refresh	= 50,
+		.xres		= 800,		.yres		= 480,
+		.pixclock	= KHZ2PICOS(24525),
+
+		.left_margin	= 88,		.right_margin	= 40,
+		.upper_margin	= 32,		.lower_margin	= 13,
+		.hsync_len	= 1,		.vsync_len	= 3,
+
+		.sync		= 0,
+		.vmode		= FB_VMODE_NONINTERLACED,
+	},
+};
+
+static struct fb_monspecs at91fb_default_monspecs = {
+	.manufacturer	= "FGD",
+	.monitor        = "FGD700C4001",
+
+	.modedb		= at91_tft_vga_modes,
+	.modedb_len	= ARRAY_SIZE(at91_tft_vga_modes),
+	.hfmin		= 15000,
+	.hfmax		= 17640,
+	.vfmin		= 57,
+	.vfmax		= 67,
+};
+#else
 static struct fb_videomode at91_tft_vga_modes[] = {
 	{
 		.name           = "HannStar",
@@ -231,6 +261,7 @@ static struct fb_monspecs at91fb_default_monspecs = {
 	.vfmin		= 57,
 	.vfmax		= 67,
 };
+#endif
 
 #define AT91SAM9G45_DEFAULT_LCDCON2 	(ATMEL_LCDC_MEMOR_LITTLE \
 					| ATMEL_LCDC_DISTYPE_TFT \
