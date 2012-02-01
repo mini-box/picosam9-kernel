@@ -334,6 +334,8 @@ static struct usb_device_id rtl8192c_usb_ids[] = {
 	{RTL_USB_DEVICE(0x2001, 0x330a, rtl92cu_hal_cfg)}, /*D-Link-Alpha*/
 	{RTL_USB_DEVICE(0x2019, 0xab2b, rtl92cu_hal_cfg)}, /*Planex -Abocom*/
 	{RTL_USB_DEVICE(0x7392, 0x7822, rtl92cu_hal_cfg)}, /*Edimax -Edimax*/
+	{RTL_USB_DEVICE(0x0bda, 0x8178, rtl92cu_hal_cfg)}, /*Netis WF-2109*/
+	{RTL_USB_DEVICE(0x0bda, 0x8176, rtl92cu_hal_cfg)}, /*EDUP EP8508G/S*/
 	{}
 };
 
