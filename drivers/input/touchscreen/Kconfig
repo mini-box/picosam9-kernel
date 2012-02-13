@@ -751,4 +751,11 @@ config TOUCHSCREEN_PICOSAM9G45_TSADCC_BUTTONS
 	  Say Y here if your resistive touchscreen has buttons on it, usually a row of
 	  3 buttons on the bottom.
 
+config TOUCHSCREEN_PICOSAM9G45_TSADCC_CALIBRATE
+	bool "picosam9g45 Touchscreen Calibration interface"
+	depends on TOUCHSCREEN_PICOSAM9G45_TSADCC
+	help
+	  Say Y here if you want to calibrate the touchscreen by feeding the values to 
+	  the sysfs interface
+
 endif
