@@ -1,5 +1,5 @@
 /*
- *  picoSAM9G45 Touch Screen and ADC Driver
+ *  picoSAM9G45  Touch Screen Driver
  *
  *  Copyright (c) 2008 ATMEL
  *  Copyright (c) 2008 Dan Liang
@@ -13,8 +13,6 @@
  *  it under the terms of the GNU General Public License version 2 as
  *  published by the Free Software Foundation.
  */
-
-#define DEBUG 1
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
@@ -24,91 +22,27 @@
 #include <linux/interrupt.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
-#include <linux/delay.h>
 #include <linux/io.h>
-#include <linux/jiffies.h>
 #include <mach/board.h>
 #include <mach/cpu.h>
 
-/* Register definitions based on AT91SAM9RL64 preliminary draft datasheet */
+#include "atmel_tsadcc.h"
 
-#define ATMEL_TSADCC_CR		0x00	/* Control register */
-#define   ATMEL_TSADCC_SWRST	(1 << 0)	/* Software Reset*/
-#define   ATMEL_TSADCC_START	(1 << 1)	/* Start conversion */
+#define cpu_has_9x5_adc() (cpu_is_at91sam9x5())
 
-#define ATMEL_TSADCC_MR		0x04	/* Mode register */
-#define	  ATMEL_TSADCC_TSAMOD	(3    <<  0)	/* ADC mode */
-#define	    ATMEL_TSADCC_TSAMOD_ADC_ONLY_MODE	(0x0)	/* ADC Mode */
-#define	    ATMEL_TSADCC_TSAMOD_TS_ONLY_MODE	(0x1)	/* Touch Screen Only Mode */
-#define	    ATMEL_TSADCC_TSAMOD_INTERLEAVE_MODE	(0x2)	/* Interleave Mode */
-#define	  ATMEL_TSADCC_LOWRES	(1    <<  4)	/* Resolution selection */
-#define	  ATMEL_TSADCC_SLEEP	(1    <<  5)	/* Sleep mode */
-#define	  ATMEL_TSADCC_PENDET	(1    <<  6)	/* Pen Detect selection */
-#define	  ATMEL_TSADCC_PRES	(1    <<  7)	/* Pressure Measurement Selection */
-#define	  ATMEL_TSADCC_PRESCAL	(0x3f <<  8)	/* Prescalar Rate Selection */
-#define	  ATMEL_TSADCC_EPRESCAL	(0xff <<  8)	/* Prescalar Rate Selection (Extended) */
-#define	  ATMEL_TSADCC_STARTUP	(0x7f << 16)	/* Start Up time */
-#define	  ATMEL_TSADCC_SHTIM	(0xf  << 24)	/* Sample & Hold time */
-#define	  ATMEL_TSADCC_PENDBC	(0xf  << 28)	/* Pen Detect debouncing time */
+#define ADC_DEFAULT_CLOCK	100000
 
-#define ATMEL_TSADCC_TRGR	0x08	/* Trigger register */
-#define	  ATMEL_TSADCC_TRGMOD	(7      <<  0)	/* Trigger mode */
-#define	    ATMEL_TSADCC_TRGMOD_NONE		(0 << 0)
-#define     ATMEL_TSADCC_TRGMOD_EXT_RISING	(1 << 0)
-#define     ATMEL_TSADCC_TRGMOD_EXT_FALLING	(2 << 0)
-#define     ATMEL_TSADCC_TRGMOD_EXT_ANY		(3 << 0)
-#define     ATMEL_TSADCC_TRGMOD_PENDET		(4 << 0)
-#define     ATMEL_TSADCC_TRGMOD_PERIOD		(5 << 0)
-#define     ATMEL_TSADCC_TRGMOD_CONTINUOUS	(6 << 0)
-#define   ATMEL_TSADCC_TRGPER	(0xffff << 16)	/* Trigger period */
+#define ZTHRESHOLD		3200
 
-#define ATMEL_TSADCC_TSR	0x0C	/* Touch Screen register */
-#define	  ATMEL_TSADCC_TSFREQ	(0xf <<  0)	/* TS Frequency in Interleaved mode */
-#define	  ATMEL_TSADCC_TSSHTIM	(0xf << 24)	/* Sample & Hold time */
+#define COUNT_MAX		20
 
-#define ATMEL_TSADCC_CHER	0x10	/* Channel Enable register */
-#define ATMEL_TSADCC_CHDR	0x14	/* Channel Disable register */
-#define ATMEL_TSADCC_CHSR	0x18	/* Channel Status register */
-#define	  ATMEL_TSADCC_CH(n)	(1 << (n))	/* Channel number */
-
-#define ATMEL_TSADCC_SR		0x1C	/* Status register */
-#define	  ATMEL_TSADCC_EOC(n)	(1 << ((n)+0))	/* End of conversion for channel N */
-#define	  ATMEL_TSADCC_OVRE(n)	(1 << ((n)+8))	/* Overrun error for channel N */
-#define	  ATMEL_TSADCC_DRDY	(1 << 16)	/* Data Ready */
-#define	  ATMEL_TSADCC_GOVRE	(1 << 17)	/* General Overrun Error */
-#define	  ATMEL_TSADCC_ENDRX	(1 << 18)	/* End of RX Buffer */
-#define	  ATMEL_TSADCC_RXBUFF	(1 << 19)	/* TX Buffer full */
-#define	  ATMEL_TSADCC_PENCNT	(1 << 20)	/* Pen contact */
-#define	  ATMEL_TSADCC_NOCNT	(1 << 21)	/* No contact */
-
-#define ATMEL_TSADCC_LCDR	0x20	/* Last Converted Data register */
-#define	  ATMEL_TSADCC_DATA	(0x3ff << 0)	/* Channel data */
-
-#define ATMEL_TSADCC_IER	0x24	/* Interrupt Enable register */
-#define ATMEL_TSADCC_IDR	0x28	/* Interrupt Disable register */
-#define ATMEL_TSADCC_IMR	0x2C	/* Interrupt Mask register */
-#define ATMEL_TSADCC_CDR0	0x30	/* Channel Data 0 */
-#define ATMEL_TSADCC_CDR1	0x34	/* Channel Data 1 */
-#define ATMEL_TSADCC_CDR2	0x38	/* Channel Data 2 */
-#define ATMEL_TSADCC_CDR3	0x3C	/* Channel Data 3 */
-#define ATMEL_TSADCC_CDR4	0x40	/* Channel Data 4 */
-#define ATMEL_TSADCC_CDR5	0x44	/* Channel Data 5 */
+/* the maximum X axis for touchscreen before the buttons stripe */
+#define MAX_X		1010
+/* added for ADC on picoPC */
+#define ATMEL_TSADCC_TSAMOD_INTERLEAVE_MODE	(0x2)	/* Interleave Mode */
 #define ATMEL_TSADCC_CDR6	0x48	/* Channel Data 6 */
 #define ATMEL_TSADCC_CDR7	0x4C	/* Channel Data 7 */
 
-#define ATMEL_TSADCC_XPOS	0x50
-#define ATMEL_TSADCC_Z1DAT	0x54
-#define ATMEL_TSADCC_Z2DAT	0x58
-
-#define PRESCALER_VAL(x)	((x) >> 8)
-
-#define ADC_DEFAULT_CLOCK	100000
-#define COUNT_MAX		20
-
-/* undef if X axis is not inversed */
-#undef INVERSE_X
-/* X axis from ~30 -> ~980 */
-#define MAX_X		1010
 struct analogInputInfo {
     int chan;
     int port;
@@ -134,6 +68,31 @@ static const int keyEvents[] = {
 	KEY_BACK, 88,
 };
 
+#ifdef CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC_CALIBRATE
+int calibrated;	
+int tx1;		
+int ty1;		
+int tz1;		
+int tx2;		
+int ty2;		
+int tz2;		
+int rawX;
+int rawY;
+int ts;
+
+module_param(tx1, int, 0664);
+module_param(ty1, int, 0664);
+module_param(tz1, int, 0664);
+module_param(tx2, int, 0664);
+module_param(ty2, int, 0664);
+module_param(tz2, int, 0664);
+module_param(rawX, int, 0664);
+module_param(rawY, int, 0664);
+module_param(ts, int, 0664);
+module_param(calibrated, int, 0664);
+
+#endif
+
 struct picosam9g45_tsadcc {
 	struct input_dev	*input;
 	char			phys[32];
@@ -141,11 +100,13 @@ struct picosam9g45_tsadcc {
 	int			irq;
 	unsigned int		prev_absx;
 	unsigned int		prev_absy;
-	unsigned char		bufferedmeasure;
+	unsigned int		prev_absz;
 };
 
-/* Single-threaded */
+/* Not thread safe */
 static struct semaphore	adc_lock;
+static void __iomem		*tsc_base;
+static unsigned int		trigger_period;
 
 static void __iomem		*tsc_base;
 static unsigned int		trigger_period;
@@ -153,30 +114,101 @@ static unsigned int		trigger_period;
 #define atmel_tsadcc_read(reg)		__raw_readl(tsc_base + (reg))
 #define atmel_tsadcc_write(reg, val)	__raw_writel((val), tsc_base + (reg))
 
+static unsigned int do_filter(unsigned int val[], int count, int needed) {
+	int i, j;
+	int max_delta, max_delta_index;
+	unsigned int average;
+
+	if (needed == 0)
+		return val[0];
+
+	for (i = count; i > needed; i--) {
+		average = 0;
+		for (j = 0; j < i; j++)
+			average += val[j];
+		average /= i;
+
+		max_delta = 0;
+		max_delta_index = -1;
+		for (j = 0; j < i; j++) {
+			if (abs(val[j] - average) > max_delta) {
+				max_delta = abs(val[j] - average);
+				max_delta_index = j;
+			}
+		}
+
+		if (max_delta_index < 0)
+			return average;
+
+		if (max_delta_index < i - 1)
+			for (j = 0; j < i - max_delta_index; j++)
+				val[max_delta_index + j] = val[max_delta_index + j + 1];
+	}
+
+	average = 0;
+	for (i = 0; i < needed; i++)
+		average += val[i];
+	average /= needed;
+
+	return average;
+}
+
+#ifdef CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC_CALIBRATE
+static void do_calibrate(int *x,int *y){
+	int cal_x,cal_y;
+	rawX = *x;
+	rawY = *y;
+	cal_x = *x;
+	cal_y = *y;
+		 
+	if(calibrated && ts)
+	{
+		cal_x = (rawX*tx1 + rawY*ty1 + tz1)/ts ;
+		cal_y = (rawX*tx2 + rawY*ty2 + tz2)/ts ;
+	}
+	*x = cal_x;
+	*y = cal_y;
+}
+
+#else
+static void do_calibrate(int * x, int * y){}
+#endif
+
 static irqreturn_t picosam9g45_tsadcc_interrupt(int irq, void *dev)
 {
 	struct picosam9g45_tsadcc	*ts_dev = (struct picosam9g45_tsadcc *)dev;
 	struct input_dev	*input_dev = ts_dev->input;
+	struct at91_tsadcc_data *pdata = input_dev->dev.parent->platform_data;
+	static int count = 0;
 
 	unsigned int status;
 	unsigned int reg;
 	unsigned int x, y;
-	static int count = 0;
+	unsigned int z1, z2;
+	unsigned int Rxp = 1;
+	unsigned int factor = 1000;
+
+	static unsigned int point_buffer_x[COUNT_MAX];
+	static unsigned int point_buffer_y[COUNT_MAX];
 
 	status = atmel_tsadcc_read(ATMEL_TSADCC_SR);
 	status &= atmel_tsadcc_read(ATMEL_TSADCC_IMR);
 
 	if (status & ATMEL_TSADCC_NOCNT) {
 		/* Contact lost */
-		reg = atmel_tsadcc_read(ATMEL_TSADCC_MR) | ATMEL_TSADCC_PENDBC;
-
-		atmel_tsadcc_write(ATMEL_TSADCC_MR, reg);
+		if (cpu_has_9x5_adc()) {
+			/* 9X5 using TSMR to set PENDBC time */
+			reg = atmel_tsadcc_read(ATMEL_TSADCC_TSMR) | ((pdata->pendet_debounce << 28) & ATMEL_TSADCC_PENDBC);
+			atmel_tsadcc_write(ATMEL_TSADCC_TSMR, reg);
+		} else {
+			reg = atmel_tsadcc_read(ATMEL_TSADCC_MR) | ATMEL_TSADCC_PENDBC;
+			atmel_tsadcc_write(ATMEL_TSADCC_MR, reg);
+		}
 		atmel_tsadcc_write(ATMEL_TSADCC_TRGR, ATMEL_TSADCC_TRGMOD_NONE);
 		atmel_tsadcc_write(ATMEL_TSADCC_IDR,
-				   ATMEL_TSADCC_EOC(3) | ATMEL_TSADCC_NOCNT);
+				   ATMEL_TSADCC_CONVERSION_END | ATMEL_TSADCC_NOCNT);
 		atmel_tsadcc_write(ATMEL_TSADCC_IER, ATMEL_TSADCC_PENCNT);
 
-		ts_dev->bufferedmeasure = 0;
 		input_report_key(input_dev, BTN_TOUCH, 0);
 		input_report_abs(input_dev, ABS_PRESSURE, 0);
 #ifdef CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC_BUTTONS
@@ -186,29 +218,78 @@ static irqreturn_t picosam9g45_tsadcc_interrupt(int irq, void *dev)
 		input_report_key(input_dev, KEY_BACK, 0);
 		input_report_key(input_dev, KEY_MENU, 0);
 #endif
-		
+
 		input_sync(input_dev);
 
 	} else if (status & ATMEL_TSADCC_PENCNT) {
 		/* Pen detected */
-		reg = atmel_tsadcc_read(ATMEL_TSADCC_MR);
-		reg &= ~ATMEL_TSADCC_PENDBC;
+		if (cpu_has_9x5_adc()) {
+			reg = atmel_tsadcc_read(ATMEL_TSADCC_TSMR);
+			reg &= ~ATMEL_TSADCC_PENDBC;
+			atmel_tsadcc_write(ATMEL_TSADCC_TSMR, reg);
+		} else {
+			reg = atmel_tsadcc_read(ATMEL_TSADCC_MR);
+			reg &= ~ATMEL_TSADCC_PENDBC;
+			atmel_tsadcc_write(ATMEL_TSADCC_MR, reg);
+		}
 
 		atmel_tsadcc_write(ATMEL_TSADCC_IDR, ATMEL_TSADCC_PENCNT);
-		atmel_tsadcc_write(ATMEL_TSADCC_MR, reg);
 		atmel_tsadcc_write(ATMEL_TSADCC_IER,
-				   ATMEL_TSADCC_EOC(3) | ATMEL_TSADCC_NOCNT);
-		atmel_tsadcc_write(ATMEL_TSADCC_TRGR,
+				   ATMEL_TSADCC_CONVERSION_END | ATMEL_TSADCC_NOCNT);
+		if (cpu_has_9x5_adc()) {
+		    atmel_tsadcc_write(ATMEL_TSADCC_TRGR,
+				   ATMEL_TSADCC_TRGMOD_PERIOD | (0x00D0 << 16));
+		}else{
+		    atmel_tsadcc_write(ATMEL_TSADCC_TRGR,
 				   ATMEL_TSADCC_TRGMOD_PERIOD | (trigger_period << 16));
+		}
 
-		count = 0;
+              count = 0;
 
-	} else if (status & ATMEL_TSADCC_EOC(3)) {
+	} else if ((status & ATMEL_TSADCC_CONVERSION_END) == ATMEL_TSADCC_CONVERSION_END) {
 		/* Conversion finished */
-		if (ts_dev->bufferedmeasure) {
-			x = ts_dev->prev_absx;
-			y = ts_dev->prev_absy;
-			//printk(KERN_ERR "X: %d/%d Y: %d\n", ts_dev->prev_absx, x, ts_dev->prev_absy);
+		
+		/* make new measurement */
+		if (cpu_has_9x5_adc()) {
+			unsigned int xscale, yscale;
+			
+			/* calculate position */
+			reg = atmel_tsadcc_read(ATMEL_TSADCC_XPOSR);
+			ts_dev->prev_absx = (reg & ATMEL_TSADCC_XPOS) << 10;
+			xscale = (reg & ATMEL_TSADCC_XSCALE) >> 16;
+			ts_dev->prev_absx /= xscale ? xscale: 1;
+
+			reg = atmel_tsadcc_read(ATMEL_TSADCC_YPOSR);
+			ts_dev->prev_absy = (reg & ATMEL_TSADCC_YPOS) << 10;
+			yscale = (reg & ATMEL_TSADCC_YSCALE) >> 16;
+			ts_dev->prev_absy /= yscale ? yscale: 1 << 10;
+
+			/* calculate the pressure */
+			reg = atmel_tsadcc_read(ATMEL_TSADCC_PRESSR);
+			z1 = reg & ATMEL_TSADCC_PRESSR_Z1;
+			z2 = (reg & ATMEL_TSADCC_PRESSR_Z2) >> 16;
+
+			if (z1 != 0)
+				ts_dev->prev_absz = Rxp * (ts_dev->prev_absx * factor / 1024) * (z2 * factor / z1 - factor) / factor;
+			else
+				ts_dev->prev_absz = 0;
+
+		} else {
+			ts_dev->prev_absx = atmel_tsadcc_read(ATMEL_TSADCC_CDR3) << 10;
+			ts_dev->prev_absx /= atmel_tsadcc_read(ATMEL_TSADCC_CDR2);
+
+			ts_dev->prev_absy = atmel_tsadcc_read(ATMEL_TSADCC_CDR1) << 10;
+			ts_dev->prev_absy /= atmel_tsadcc_read(ATMEL_TSADCC_CDR0);
+		}
+		if (count < COUNT_MAX) {
+			point_buffer_x[count] = ts_dev->prev_absx;
+			point_buffer_y[count] = ts_dev->prev_absy;
+			count++;
+		} else {
+			count = 0;
+			
+			x =  do_filter(point_buffer_x, COUNT_MAX, COUNT_MAX * 3 / 4);
+			y =  do_filter(point_buffer_y, COUNT_MAX, COUNT_MAX * 3 / 4);
 #ifdef CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC_BUTTONS
 			if (y > 820)
 			{
@@ -226,31 +307,17 @@ static irqreturn_t picosam9g45_tsadcc_interrupt(int irq, void *dev)
 			else
 #endif
 			{
-				/* Last measurement is always discarded, since it can
-				* be erroneous.
-				* Always report previous measurement */
-				input_report_abs(input_dev, ABS_X, ts_dev->prev_absx);
-				input_report_abs(input_dev, ABS_Y, ts_dev->prev_absy);
+				do_calibrate(&x,&y);
+				input_report_abs(input_dev, ABS_X, x);
+				input_report_abs(input_dev, ABS_Y, y);
 				input_report_key(input_dev, BTN_TOUCH, 1);
 				input_report_abs(input_dev, ABS_PRESSURE, 7500);
 			}
 			input_sync(input_dev);
-		} else
-			ts_dev->bufferedmeasure = 1;
-		/* Now make new measurement */
-		ts_dev->prev_absx = atmel_tsadcc_read(ATMEL_TSADCC_CDR3) << 10;
-		ts_dev->prev_absx /= atmel_tsadcc_read(ATMEL_TSADCC_CDR2);
-
-		ts_dev->prev_absy = atmel_tsadcc_read(ATMEL_TSADCC_CDR1) << 10;
-		ts_dev->prev_absy /= atmel_tsadcc_read(ATMEL_TSADCC_CDR0);
-		
-#ifdef INVERSE_X
-		ts_dev->prev_absx = MAX_X - ts_dev->prev_absx;
-#endif
+		}
 	}
 	return IRQ_HANDLED;
 }
-
 
 static ssize_t picosam9g45_adc_read(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -308,6 +375,7 @@ static const struct attribute_group adc_attr_group = {
     .attrs =  (struct attribute **) adc_attrs
 };
 
+
 /*
  * The functions for inserting/removing us as a module.
  */
@@ -319,7 +387,7 @@ static int __devinit picosam9g45_tsadcc_probe(struct platform_device *pdev)
 	struct resource		*res;
 	struct at91_tsadcc_data *pdata = pdev->dev.platform_data;
 	int		err = 0;
-	int		i;
+	int i;
 	unsigned int	prsc;
 	unsigned int	reg;
 	unsigned int	startup_time;
@@ -337,6 +405,7 @@ static int __devinit picosam9g45_tsadcc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	platform_set_drvdata(pdev, ts_dev);
+
 	input_dev = input_allocate_device();
 	if (!input_dev) {
 		dev_err(&pdev->dev, "failed to allocate input device.\n");
@@ -378,7 +447,7 @@ static int __devinit picosam9g45_tsadcc_probe(struct platform_device *pdev)
 		err = PTR_ERR(ts_dev->clk);
 		goto err_free_irq;
 	}
-
+	
 	sema_init(&adc_lock, 1);
 
 	err = platform_device_register(&adc_dev);
@@ -392,7 +461,6 @@ static int __devinit picosam9g45_tsadcc_probe(struct platform_device *pdev)
 	}
 
 	ts_dev->input = input_dev;
-	ts_dev->bufferedmeasure = 0;
 
 	snprintf(ts_dev->phys, sizeof(ts_dev->phys),
 		 "%s/input0", dev_name(&pdev->dev));
@@ -400,7 +468,10 @@ static int __devinit picosam9g45_tsadcc_probe(struct platform_device *pdev)
 	input_dev->name = "pico-touch";
 	input_dev->phys = ts_dev->phys;
 	input_dev->dev.parent = &pdev->dev;
-	
+
+#ifdef CONFIG_TOUCHSCREEN_PICOSAM9G45_TSADCC_CALIBRATE
+    calibrated = 0;
+#endif
 	__set_bit(EV_KEY, input_dev->evbit);
 	__set_bit(EV_ABS, input_dev->evbit);
 	
@@ -410,9 +481,12 @@ static int __devinit picosam9g45_tsadcc_probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(keyEvents); ++i)
 		__set_bit(keyEvents[i], input_dev->keybit);
 
+	
 	input_set_abs_params(input_dev, ABS_X, 0, 0x3FF, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, 0x3FF, 0, 0);
 	input_set_abs_params(input_dev, ABS_PRESSURE, 0, 15000, 0, 0);
+
+	input_set_capability(input_dev, EV_KEY, BTN_TOUCH);
 	
 	device_init_wakeup(&pdev->dev, 1);
 
@@ -422,7 +496,7 @@ static int __devinit picosam9g45_tsadcc_probe(struct platform_device *pdev)
 	prsc = clk_get_rate(ts_dev->clk);
 	dev_info(&pdev->dev, "Master clock is set at: %d Hz\n", prsc);
 
-	if (!pdata)
+    	if (!pdata)
 		goto err_fail;
 
 	if (!pdata->adc_clock)
@@ -448,22 +522,41 @@ static int __devinit picosam9g45_tsadcc_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "Prescaler is set at: %d\n", prsc);
 
-/*	reg = ATMEL_TSADCC_TSAMOD_TS_ONLY_MODE		|*/
-	reg = ATMEL_TSADCC_TSAMOD_INTERLEAVE_MODE	|
-		((0x00 << 5) & ATMEL_TSADCC_SLEEP)	|	/* Normal Mode */
-		((0x01 << 6) & ATMEL_TSADCC_PENDET)	|	/* Enable Pen Detect */
-		(prsc << 8)				|
-		((startup_time << 16) & ATMEL_TSADCC_STARTUP)	|
-		((pdata->pendet_debounce << 28) & ATMEL_TSADCC_PENDBC);
+	if (cpu_has_9x5_adc()) {
+		reg = 	((0x00 << 5) & ATMEL_TSADCC_SLEEP)	|	/* no Sleep Mode */
+			((0x00 << 6) & ATMEL_TSADCC_FWUP)	|	/* no Fast Wake Up needed */
+			(prsc << 8)				|
+            ((0x4 << 16) & ATMEL_TSADCC_STARTUP)	|
+			((pdata->ts_sample_hold_time << 24) & ATMEL_TSADCC_TRACKTIM);
+	} else {
+		reg = ATMEL_TSADCC_TSAMOD_INTERLEAVE_MODE		|
+			((0x00 << 5) & ATMEL_TSADCC_SLEEP)	|	/* Normal Mode */
+			((0x01 << 6) & ATMEL_TSADCC_PENDET)	|	/* Enable Pen Detect */
+			(prsc << 8)				|
+			((startup_time << 16) & ATMEL_TSADCC_STARTUP)	|
+			((pdata->pendet_debounce << 28) & ATMEL_TSADCC_PENDBC);
+	}
 
 	atmel_tsadcc_write(ATMEL_TSADCC_CR, ATMEL_TSADCC_SWRST);
 	atmel_tsadcc_write(ATMEL_TSADCC_MR, reg);
 	atmel_tsadcc_write(ATMEL_TSADCC_TRGR, ATMEL_TSADCC_TRGMOD_NONE);
-	atmel_tsadcc_write(ATMEL_TSADCC_TSR,
-		(pdata->ts_sample_hold_time << 24) & ATMEL_TSADCC_TSSHTIM);
+
+	if (cpu_has_9x5_adc()) {
+		atmel_tsadcc_write(ATMEL_TSADCC_TSMR,
+					ATMEL_TSADCC_TSMODE_4WIRE_PRESS	|
+					((pdata->filtering_average << 4) & ATMEL_TSADCC_TSAV) |	/* Touchscreen average */
+					ATMEL_TSADCC_NOTSDMA		|
+					ATMEL_TSADCC_PENDET_ENA		|
+					((pdata->pendet_debounce << 28) & ATMEL_TSADCC_PENDBC) |
+					(0x3 << 8));				/* Touchscreen freq */
+	} else {
+		atmel_tsadcc_write(ATMEL_TSADCC_TSR,
+			(pdata->ts_sample_hold_time << 24) & ATMEL_TSADCC_TSSHTIM);
+	}
 
 	atmel_tsadcc_read(ATMEL_TSADCC_SR);
 	atmel_tsadcc_write(ATMEL_TSADCC_IER, ATMEL_TSADCC_PENCNT);
+
 	/* Enable all channels */
 	atmel_tsadcc_write(ATMEL_TSADCC_CHER, 0xFF);
 

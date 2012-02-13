@@ -188,6 +188,7 @@ extern void __init at91_add_device_isi(void);
  /* Touchscreen Controller */
 struct at91_tsadcc_data {
 	unsigned int    adc_clock;
+	u8              filtering_average;
 	u8		pendet_debounce;
 	u8		ts_sample_hold_time;
 };
