@@ -466,10 +466,18 @@ void __init picosam9g45_add_device_tsadcc(void) {}
  */
 #define PICOSAM9G45_CAPTS_IRQ	AT91_PIN_PA27
 static struct i2c_board_info __initdata picosam9g45_i2c1_devices[] = {
+#ifdef CONFIG_TOUCHSCREEN_MSTAR_MSG20XX
 	{
-		I2C_BOARD_INFO("ms-msg20xx", 0x60),
+		 I2C_BOARD_INFO("ms-msg20xx", 0x60),
+		 .irq = PICOSAM9G45_CAPTS_IRQ,
+	},
+#endif
+#ifdef CONFIG_TOUCHSCREEN_FT5X06
+	{
+		I2C_BOARD_INFO("ft5x0x_ts", 0x38),
 		.irq = PICOSAM9G45_CAPTS_IRQ,
 	},
+#endif
 };
 
 static void picosam9g45_setup_device_capts(void)

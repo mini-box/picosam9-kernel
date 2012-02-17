@@ -1,0 +1,16 @@
+#
+# Mstar Touchscreen driver configuration
+#
+
+config TOUCHSCREEN_FT5X06
+	tristate "FocalTech_FT5X06 based touchscreens"
+	depends on I2C
+	help
+	  Say Y here if you have a touchscreen interface using the
+	  FocalTech_FT5X06 controller, and your board-specific
+	  setup code includes that in its table of I2C devices.
+
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ft5x06_ts.
