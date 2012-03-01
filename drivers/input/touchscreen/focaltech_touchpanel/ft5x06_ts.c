@@ -21,7 +21,7 @@
  */
 
 
-#define DEBUG
+#undef DEBUG
 
 #include <linux/device.h>
 #include <linux/i2c.h>
@@ -41,7 +41,7 @@ static struct i2c_client *this_client;
 //static struct ft5x0x_ts_platform_data *pdata;
 
 #define CONFIG_FT5X0X_MULTITOUCH 1
-#define FT5X0X_PRINT_DEBUG_MSG 1
+#define FT5X0X_PRINT_DEBUG_MSG 0
 struct ts_event {
 	u16	x1;
 	u16	y1;
