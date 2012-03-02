@@ -239,11 +239,12 @@ static struct fb_videomode at91_tft_vga_modes[] = {
 		.name           = "HannStar",
 		.refresh	= 60,
 		.xres		= 480,		.yres		= 272,
+		/*.pixclock	= KHZ2PICOS(8642),*/
 		.pixclock	= KHZ2PICOS(9000),
 
-		.left_margin	= 2,		.right_margin	= 2,
-		.upper_margin	= 2,		.lower_margin	= 2,
-		.hsync_len	= 41,		.vsync_len	= 10,
+		.left_margin	= 36,		.right_margin	= 4,
+		.upper_margin	= 3,		.lower_margin	= 2,
+		.hsync_len	= 0,		.vsync_len	= 0,
 
 		.sync		= 0,
 		.vmode		= FB_VMODE_NONINTERLACED,
@@ -258,8 +259,8 @@ static struct fb_monspecs at91fb_default_monspecs = {
 	.modedb_len	= ARRAY_SIZE(at91_tft_vga_modes),
 	.hfmin		= 15000,
 	.hfmax		= 17640,
-	.vfmin		= 57,
-	.vfmax		= 67,
+	.vfmin		= 50,
+	.vfmax		= 70,
 };
 #endif
 
