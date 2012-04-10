@@ -2047,8 +2047,14 @@ void rtl92cu_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
 			break;
 		}
 	case HW_VAR_RCR:{
-			rtl_write_dword(rtlpriv, REG_RCR, ((u32 *) (val))[0]);
 			mac->rx_conf = ((u32 *) (val))[0];
+			/* whenever the driver sets bits enabling only a
+			 * specific BSSID for beacons or data, a failure
+			 * occurs. Thus we do not allow those bits to be set */
+			if (mac->rx_conf & (RCR_CBSSID_BCN | RCR_CBSSID_DATA))
+				mac->rx_conf &= ~(RCR_CBSSID_BCN |
+						  RCR_CBSSID_DATA);
+			rtl_write_dword(rtlpriv, REG_RCR, mac->rx_conf);
 			RT_TRACE(rtlpriv, COMP_RECV, DBG_DMESG,
 				 ("### Set RCR(0x%08x) ###\n", mac->rx_conf));
 			break;
