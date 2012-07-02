@@ -1121,9 +1121,10 @@ static void _InitAntenna_Selection(struct ieee80211_hw *hw)
 		return;
 
 	if (rtlphy->rf_type == RF_1T1R) {
+		/*
 		rtl_write_dword(rtlpriv, REG_LEDCFG0,
 				rtl_read_dword(rtlpriv,
-				REG_LEDCFG0)|BIT(23));
+				REG_LEDCFG0)|BIT(23));*/
 		rtl_set_bbreg(hw, rFPGA0_XAB_RFPARAMETER, BIT(13), 0x01);
 		if (rtl_get_bbreg(hw, RFPGA0_XA_RFINTERFACEOE, 0x300) ==
 		    Antenna_A)
@@ -1158,6 +1159,7 @@ int rtl92cu_hw_init(struct ieee80211_hw *hw)
 	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
 	int err = 0;
 	static bool iqk_initialized;
+	u8 ledcfg;
 
 	rtlhal->hw_type = HARDWARE_TYPE_RTL8192CU;
 	err = _rtl92cu_init_mac(hw);
@@ -1212,6 +1214,11 @@ int rtl92cu_hw_init(struct ieee80211_hw *hw)
 	_update_mac_setting(hw);
 	rtl92c_dm_init(hw);
 	_dump_registers(hw);
+	
+	ledcfg = rtl_read_byte(rtlpriv, REG_LEDCFG2);
+	rtl_write_byte(rtlpriv, REG_LEDCFG2, ((ledcfg & 0xf0) | BIT(3) | BIT(5) | BIT(6)));
+	rtl_write_byte(rtlpriv, REG_LEDCFG2, ((ledcfg & 0x0f) | BIT(3)));
+	rtl_write_word(rtlpriv, REG_LEDCFG0, 0x8080);
 	return err;
 }
 
